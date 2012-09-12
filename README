@@ -1,0 +1,69 @@
+TerraEnv
+
+Ici sont présent les différentes classes que j'ai créé pour mon utilisation personnelle mais qui, si je les trouve viable,
+peuvent servir à une ou plusieurs personnes.
+
+REQUEST :
+
+J'ai souvent été amené à devoir valider et vérifier un grand nombre de données venant de l'extérieur comme tout développeur web.
+Il s'avère que les méthodes que j'utilisais été répétitives et prenaient beaucoups trop de place pour de simple vérification à mon goût.
+
+La classe REQUEST permet donc de gérer de façon simplifiée et condensée les entrée GET et POST d'un script php.
+Il permet la validation en masse des données, ces dernières étant identifiées par leur clé comme cela ce fait
+normalement avec un $_POST ou un $_GET.
+
+Cette validation se fait de plusieurs manières qui ont l'intérêt d'être simple à mettre en place et prennent moins de place.
+
+Syntax :
+$post = new REQUEST($method, $defaultFlag);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+$userData = $post($keys, FLAGS, $filters);
+> $keys peut être un tableau de clé ou un simple chaine de caractère représentant une clé.
+> FLAGS sont les différents flags de disponible que l'on peut additionner via l'opérateur | (classique)
+> $filters peut être un tableau d'identifiant de filtre ou une chaine représentant un identifiant de filtre
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Quelques syntaxes possibles :
+$userData = $post([$key_1, $key_2], FLAGS | CHECK, $filter); //$filter sera effectif pour toutes les clés
+$userData = $post([$key_1, $key_2], FLAGS | CHECK, [$filter_1]); //$filter_1 ne vérifiera que $key_1, le restera passera sans filtre
+$userData = $post([$key_1, $key_2], FLAGS | CHECK, [$filter_1, $filter_2]); //$filter_1 vérifiera $key_1 et $filter_2 vérifiera $key_2
+$userData = $post($key, FLAGS, $filter);
+$userData = $post($key); //$key sera validé par rapport aux flag par défaut (NOT_NULL | NOT_EMPTY)
+
+
+Les flags disponible sont :
+HTML_SECURE     Transforme la chaine en modifiant les tags html
+NOT_EMPTY       Ne valide pas les valeurs vide
+NOT_NULL        Ne valide pas les valeurs null | inexistante
+NUMERIC         Ne valide pas les valeurs qui ne sont pas des nombres
+CHECK           Fait appel aux filtres
+
+Les filtres disponibles (utilisable si le FLAG CHECK est présent) sont :
+i   integer             Vérifie si la valeur est un entier
+ip  positive integer    Vérifie si la valeur est un entier positif
+in  negative integer    Vérifie si la valeur est un entier négatif
+f   float               Vérifie si la valeur est un nombre à virgule
+fp  positive float      Vérifie si la valeur est un nombre à virgule positif
+fn  negative float      Vérifie si la valeur est un nombre à virgule négatif
+s   string              Vérifie si la valeur est une chaine (supérieur à 1 caractère)
+c   character           Vérifie si la valeur est un caractère (1 caractère)
+b   boolean             Vérifie si la valeur est un boolean
+m   mail                Vérifie si la valeur est un mail valide
+d   date                Vérifie si la valeur est une date valide
+
+Exemple :
+$post = new REQUEST('POST');
+
+$userDataNumeric = $post(['ND', 'age'], NUMERIC); //On verifie si $_POST['ND'] et $_POST['age'] sont des valeurs numérique;
+
+$userDataTest = $post(['ND', 'age'], CHECK, 'pi'); //On verifie si $_POST['ND'] et $_POST['age'] sont des entiers positifs
+
+$dataNews = $post(['ND', 'titre', 'contenu'],
+                   NOT_EMPTY | HTML_SECURE | CHECK,
+                   ['pi', 's', 's']);
+//On verifie que les $_POST['ND'], $_POST['titre'] et $_POST['contenu'] ne sont pas vide (ou null).
+// En même temps on sécurise les valeurs contenant du html
+// Et enfin on valide les données à partir de filtre : ND doit etre un entier positif et le reste doit etre des chaine
+
+
