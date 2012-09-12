@@ -1,10 +1,7 @@
 <?php
 /**
- * Created by JetBrains PhpStorm.
+ * Created by SaphirAngel
  * User: SaphirAngel
- * Date: 10/09/12
- * Time: 09:07
- * To change this template use File | Settings | File Templates.
  */
 include 'Request.php';
 
@@ -13,110 +10,139 @@ include 'Request.php';
 ********
 * FLAG *
 ********
-HTML_SECURE
-NOT_EMPTY
-NOT_NULL
-CHECK
+HTML_SECURE     ok
+NOT_EMPTY       ok
+NOT_NULL        ok
+CHECK           ok
+NUMERIC         ok
+
+////// CHECK FLAG       ok
 
 **************
 * CHECK MODE *
 **************
-i   integer
-ip  positive integer
-in  negative integer
-f   float
-fp  positive float
-fn  negative float
-s   string
-c   character
-b   boolean
+i   integer             ok
+ip  positive integer    ok
+in  negative integer    ok
+f   float               ok
+fp  positive float      ok
+fn  negative float      ok
+s   string              ok
+c   character           ok
+b   boolean             ok
+m   mail                ok
+d   date                ok
+
 
 ***********************
-* PERSONAL CHECK MODE *
+* ADVANCED CHECK MODE *
 ***********************
-r   range => array(min, max)
+ir   integer_range => array(min, max)   nok
+fr   float_range => array(min, max)     nok
+sr   string_regex => '/regex/'          nok
 
+////// get_type | is_type METHOD      nok
 
 *********
 * TYPES *
 *********
-
-integer
-float
-string
-boolean
-character
+integer     nok
+float       nok
+string      npk
+boolean     nok
+character   nok
 
 
 */
 
-$_POST['titre'] = 'bo';
+// For test
+$_POST['titre'] = '<span>Hello world</span>';
 $_POST['x'] = 'test';
 $_POST['x_empty'] = '';
 $_POST['ND'] = "60";
 $_POST['age'] = "50.9";
 $_POST['hidden'] = "false";
 $_POST['test'] = "ok";
+$_POST['contenu'] = "";
 
 
 $post = new REQUEST('POST');
 $get = new REQUEST('GET');
 $request = new REQUEST('ALL');
 
-$titre = $post('titre', HTML_SECURE);
+/***NORMAL FLAG***/
 
+echo 'Securisation HTML';
+$titre = $post('titre', HTML_SECURE);
 var_dump($titre);
 
-$userData = $post(['x', 'y'], NOT_EMPTY | NOT_NULL | HTML_SECURE);
-$userData2 = $post(['x_empty'], NOT_EMPTY | HTML_SECURE);
-$userData3 = $post(['x'], NOT_EMPTY | HTML_SECURE);
+echo '<br />Valeur inexistante';
+$userDataTest_1 = $post(['x', 'y'], NOT_EMPTY | NOT_NULL | HTML_SECURE);
+if (!$userDataTest_1) var_dump($post->get_errors_list());
+else var_dump($userDataTest_1);
 
-$ND_1 = $post('ND', CHECK, 'i');
+echo '<br />Donnée vide';
+$userDataTest_2 = $post(['x_empty'], NOT_EMPTY | HTML_SECURE);
+if (!$userDataTest_2) var_dump($post->get_errors_list());
+else var_dump($userDataTest_2);
 
-$ND_2 = $post(['ND', 'age'], CHECK, 'pi');
+echo '<br />Valeur existante';
+$userDataTest_3 = $post(['x'], NOT_EMPTY | HTML_SECURE);
+if (!$userDataTest_3) var_dump($post->get_errors_list());
+else var_dump($userDataTest_3);
 
-var_dump($ND_2);
+echo '<br />Valeur numérique';
+$userDataNumeric = $post(['ND', 'age'], NUMERIC);
+if (!$userDataNumeric) var_dump($post->get_errors_list());
+else var_dump($userDataNumeric);
 
-$ND_4 = $post(['ND', 'age', 'test']);
+// Default flag
+echo '<br />Valeur avec flag par défaut';
+$userDataTest_default = $post(['ND', 'age', 'test']);
+if (!$userDataTest_default) var_dump($post->get_errors_list());
+else var_dump($userDataTest_default);
 
-//var_dump($post->get_errors_list());
+// CHECK FLAG
+echo '<br />Check integer ok';
+$userDataTest_4 = $post('ND', CHECK, 'i');
+if (!$userDataTest_4) var_dump($post->get_errors_list());
+else var_dump($userDataTest_4);
 
-var_dump($ND_1);
-$ND_3 = $post(['ND', 'age'], NUMERIC);
-var_dump($ND_3);
+echo '<br />check positive integer avec echec';
+$userDataTest_5 = $post(['ND', 'age'], CHECK, 'pi');
+if (!$userDataTest_5) var_dump($post->get_errors_list());
+else var_dump($userDataTest_5);
 
-var_dump($ND_4);
-
+echo '<br />check valeur booléenne';
 $hidden = $post('hidden', CHECK, 'b');
-var_dump($hidden);
+if (!$hidden) var_dump($post->get_errors_list());
+else var_dump($hidden);
 
+echo '<br />check simulation post ajout news basique (echec car contenu vide)';
+$dataNews = $post(['ND', 'titre', 'contenu'],
+    NOT_EMPTY | HTML_SECURE | CHECK,
+    ['pi', 's', 's']);
+if (!$dataNews) var_dump($post->get_errors_list());
+else var_dump($dataNews);
+
+/*
+
+$post->add_check($checkName, $fct);
+
+/***Not implemented***/
+/*
 $filters = [ 'r' => [0, 2],
-             's' => '/.*/' ];
+             's' => '/./' ];
 
 $userData = $post(['ND', 'titre'], CHECK | NOT_EMPTY, $filters);
 var_dump($userData);
 
-
-echo 'test';
-/*
-$dataNews = $post(['ND', 'titre', 'contenu'],
-                  NOT_EMPTY | HTML_SECURE | CHECK,
-                  ['pi', 's', 's']);
-
-if ($dataNews === false) {
-    var_dump($post->get_errors_list());
-} else {
-
-}
+$post->get_type('titre');
+$post->is_type('titre', 's');
+$post->is_type(['titre', 'ND'], ['s', 'ip']);
 
 
-/*
-$post->getType('titre');
-$post->isType('titre', 's');
-$post->isType(['titre', 'ND'], ['s', 'ip']);
 
-
-$post->add_check($checkName, $fct);
 */
 
 /*

@@ -1,10 +1,7 @@
 <?php
 /**
- * Created by JetBrains PhpStorm.
+ * Created by SaphirAngel
  * User: SaphirAngel
- * Date: 10/09/12
- * Time: 09:08
- * To change this template use File | Settings | File Templates.
  */
 
 
@@ -27,6 +24,11 @@ class REQUEST
     private $arrayData;
     private $errorsList = array();
 
+    /**
+     * Construction de l'instance
+     * @param string $requestMethod Méthode de récupération des données (POST, GET, ALL => POST + GET). En cas de ALL POST est prioritaire si doublon
+     * @param string $defaultFlag Flag par défaut
+     */
     public function __construct($requestMethod = 'POST', $defaultFlag = 'default')
     {
         if ($requestMethod == 'POST') $this->arrayData = $_POST;
@@ -41,6 +43,9 @@ class REQUEST
         $this->init_default_filter();
     }
 
+    /**
+     * Initialisation des filtres par défaut
+     */
     private function init_default_filter()
     {
         $this->add_check('i', 'integer', 'integer');
@@ -55,6 +60,53 @@ class REQUEST
         $this->add_check('d', 'date', 'date_time');
     }
 
+    /**
+     * Sécurise les données de type HTML
+     * @param string $data Données à sécuriser
+     * @param bool $flag Flag de sécurisation HTML
+     * @return string La valeur sécurisée
+     */
+    private function html_secure($data, $flag)
+    {
+        if ($flag == false) return $data;
+        $data = htmlspecialchars($data);
+
+        return $data;
+    }
+
+    /**
+     * Ajoute une erreur au tableau d'erreur
+     * @param $code Code de l'erreur
+     * @param $comment Description détaillée de l'erreur
+     */
+    private function add_error($code, $comment) {
+        $this->errorsList[$code][] = $comment;
+    }
+
+    /**
+     * Verifie les données si le flag CHECK est présent
+     * @param $key Clé de la valeur à vérifier
+     * @param $value Valeur à vérifier
+     * @param array $checkOption Options passées lors de l'appel de la vérification
+     * @return bool|mixed Résultat de la vérification
+     */
+    private function check($key, $value, $checkOption = array())
+    {
+        if (!isset($this->checkFunctions[$checkOption])) return false;
+
+        $checkFunction = $this->checkFunctions[$checkOption]['function'];
+        $options = $this->checkFunctions[$checkOption]['options'];
+
+        return call_user_func($checkFunction, $key, $value, $options);
+    }
+
+    /**
+     * Valide les données en entrées selon différents paramètres
+     * @param mixed $keys Une clé texte ou un tableau de clé
+     * @param int $flags Flag de vérification
+     * @param string $checkOptions Si le flag CHECK est présent alors contient les id des filtres
+     * @return array|bool Retourne un tableau ou false si les données ne sont pas valides
+     */
     public function __invoke($keys, $flags = DEFAULT_FLAG, $checkOptions = '')
     {
         //On nettoie les erreurs à chaque nouvelle requète
@@ -116,28 +168,14 @@ class REQUEST
         else return $data;
     }
 
-    private function html_secure($data, $flag)
-    {
-        if ($flag == false) return $data;
-        $data = htmlspecialchars($data);
-
-        return $data;
-    }
-
-    private function add_error($code, $comment) {
-        $this->errorsList[$code][] = $comment;
-    }
-
-    private function check($key, $value, $checkOption = array())
-    {
-        if (!isset($this->checkFunctions[$checkOption])) return false;
-
-        $checkFunction = $this->checkFunctions[$checkOption]['function'];
-        $options = $this->checkFunctions[$checkOption]['options'];
-
-        return call_user_func($checkFunction, $key, $value, $options);
-    }
-
+    /**
+     * Permet d'ajouter une fonction de verification personnalisée
+     * @param $id Identifiant du filtre
+     * @param $name Nom du filtre
+     * @param $functionPtr Fonction qui s'occupe de vérifier la valeur
+     * @param array $options Options à passer à la fonction lors de l'appel
+     * @return bool True si la fonction a été ajouté, False si la fonction n'est pas accessible
+     */
     public function add_check($id, $name, $functionPtr, $options = array())
     {
         if (is_callable($functionPtr)) {
@@ -150,6 +188,10 @@ class REQUEST
         return false;
     }
 
+    /**
+     * Retourne les erreurs
+     * @return array Le tableau contenant les erreurs
+     */
     public function get_errors_list() {
         return $this->errorsList;
     }
@@ -235,3 +277,12 @@ function arr($key, $value, $options = array())
     return true;
 }
 
+
+/*
+
+Initialisation des instances
+
+$post = new REQUEST('POST');
+$get = new REQUEST('GET');
+$request = new REQUEST('ALL');
+*/
