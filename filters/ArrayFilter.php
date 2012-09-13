@@ -8,9 +8,16 @@
  */
 class ArrayFilter
 {
-    function arr($key, $value, $options = array())
+    public static function arr($key, $value, $options = array())
     {
         if (!is_array($value)) return false;
+
+        return true;
+    }
+
+    public static function in($key, $value, $options = array(), $param = array()) {
+        if (!is_array($param)) return false;
+        if (!in_array($value, $param)) return false;
 
         return true;
     }
@@ -22,6 +29,8 @@ class ArrayFilter
     }
 
     public static function get_advance_check_functions() {
-        return array();
+        $functions[] = ['id' => 'in', 'name' => 'in array', 'class' => 'ArrayFilter',  'function' => 'in', 'options' => []];
+
+        return $functions;
     }
 }

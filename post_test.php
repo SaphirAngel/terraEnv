@@ -67,7 +67,7 @@ $_POST['ND'] = "2";
 $_POST['age'] = "50";
 $_POST['hidden'] = "false";
 $_POST['test'] = "ok";
-$_POST['contenu'] = "<span>a</span>";
+$_POST['contenu'] = "del";
 $_POST['password'] = "b";
 
 
@@ -135,20 +135,25 @@ echo '<br />Check avancée';
 $post->shield_on(HTML_SECURE, ['titre', 'contenu']);
 
 try {
+    $actionAllowed = ['list', 'update', 'add', 'del'];
     if ($post(['ND', 'age', 'titre', 'contenu', 'password'], DEFAULT_FLAG | CHECK, ['pi', 'pi', 's', 's', 's'])->isValid()) {
 
+
         $ND_AGE  = $post(['ND', 'age'])->check(['i_range' => [0, 60]], [5, 10]);
-        $titre   = $post('titre')->validate(['size' => [3, 255]]);
-        $contenu = $post['contenu'];
+        $titre   = $post('titre')->validate(['size' => [5, 255]]);
+        //$contenu = $post['contenu'];
+
+        $action = $post('contenu')->check(['in' => $actionAllowed], 'list');
 
         echo var_dump($ND_AGE);
         echo ':'.$titre;
-        echo '<br />contenu : '.$contenu;
+        echo '<br />contenu : '.$action;
 
     } else {
         var_dump($post->get_errors_list());
     }
-} catch (Exception $e) {
-    echo $e->getMessage();
+
+} catch (PersonalException $e) {
+    echo $e->getShortMessage().' : '.$e->getMessage();
 }
 ?>

@@ -11,11 +11,13 @@ include 'filters/booleanFilter.php';
 include 'filters/DateFilter.php';
 include 'filters/MailFilter.php';
 include 'filters/StringFilter.php';
+include 'filters/CharacterFilter.php';
 
-
+//Security flag
 define ('HTML_SECURE', 1);
 define ('SQL_SECURE', 2);
 
+//Basic check flag
 define ('DEFAULT_FLAG', 0);
 define ('NOT_EMPTY', 6);
 define ('NOT_NULL', 4);
@@ -73,7 +75,7 @@ class REQUEST implements ArrayAccess
         $this->add_check_class("StringFilter");
         $this->add_check_class("MailFilter");
         $this->add_check_class("ArrayFilter");
-
+        $this->add_check_class("CharacterFilter");
     }
 
     /**
@@ -143,7 +145,8 @@ class REQUEST implements ArrayAccess
     private function basic_check($key, $value, $checkOption = array())
     {
         $class = '';
-        if (!isset($this->checkFunctions[$checkOption])) return false;
+        if (!isset($this->checkFunctions[$checkOption]))
+            throw new BadCallFilter('Basic filter not exist', 'Aucun filtre basique avec pour identifiant ['.$checkOption.'] existe');
 
         $checkFunction = $this->checkFunctions[$checkOption]['function'];
         if (isset($this->checkFunctions[$checkOption]['class']))
@@ -166,7 +169,9 @@ class REQUEST implements ArrayAccess
      */
     private function advance_check($key, $value, $checkName, $checkParam)
     {
-        if (!isset($this->advanceCheckFunctions[$checkName])) return false;
+        if (!isset($this->advanceCheckFunctions[$checkName]))
+            throw new BadCallFilter('Advance filter not exist', 'Aucun filtre avancé avec pour identifiant ['.$checkName.'] existe');
+
         $checkFunction = $this->advanceCheckFunctions[$checkName]['function'];
         $class = $this->advanceCheckFunctions[$checkName]['class'];
         $options = $this->advanceCheckFunctions[$checkName]['options'];
@@ -306,7 +311,9 @@ class REQUEST implements ArrayAccess
         foreach ($this->finalData as $key => $value) {
             foreach ($checkOrders as $checkOrder => $checkOptions) {
                 if (!$this->advance_check($key, $value, $checkOrder, $checkOptions)) {
-                    throw new Exception('ADVANCE_CHECK_ERROR');
+                    throw new AdvancedCheckException($checkOrder.' for '.$key,
+                        'La valeur contenue dans $_POST[\''.$key.'\'] ('.$this->html_secure($value).')
+                         à échouée dans le filtre '.$checkOrder.'('.$this->advanceCheckFunctions[$checkOrder]['name'].')');
                 }
             }
             if ($uniq === true) return $this->secure($key, $value);
@@ -455,19 +462,41 @@ class REQUEST implements ArrayAccess
 
 }
 
-function character($key, $value, $options = array())
-{
-    $enabledClasses = ['alnum', 'alpha', 'blank',
-        'ctrl', 'digit', 'graph',
-        'print', 'punct', 'space',
-        'upper', 'xdigit'];
 
-    if (!is_string($value) || strlen($value) != 1) return false;
-    if (isset($options['classe']) && !in_array($options['classe'], $enabledClasses)) return false;
+/**
+ * Class d'Exception de référence pour le script (ajout d'un short message)
+ */
+class PersonalException extends  Exception {
+    private $TextCode;
+    private $shortMessage;
 
-    if (isset($options['classe']) && preg_match('/[[:' . $options['classe'] . ':]]/', $value) == 0) return false;
+    public function __construct($textCode, $shortMessage, $message, $code = 0, $previous = null) {
+        parent::__construct($message, $code, $previous);
+        $this->shortMessage = $shortMessage;
+        $this->textCode = $textCode;
+    }
 
-    return true;
+    public function getShortMessage() {
+        return $this->TextCode.'('.$this->shortMessage.')';
+    }
+}
+
+/**
+ * Exception appelé lorqu'un filtre avancé, appelé par la méthode validate(), à échoué
+ */
+class AdvancedCheckException extends PersonalException {
+    public function __construct($shortMessage, $message, $code = 0, $previous = null) {
+        parent::__construct('ADVANCE_CHECK_ERROR', $shortMessage, $message, $code = 0, $previous = null);
+    }
+}
+
+/**
+ * Exception appelé lorsqu'un filtre qui n'existe pas est demandé
+ */
+class BadCallFilter extends PersonalException {
+    public function __construct($shortMessage, $message, $code = 0, $previous = null) {
+        parent::__construct('BAD_FILTER_CALL', $shortMessage, $message, $code = 0, $previous = null);
+    }
 }
 
 /*
