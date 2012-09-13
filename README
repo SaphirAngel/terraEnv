@@ -32,12 +32,14 @@ $userData = $post($key, FLAGS, $filter);
 $userData = $post($key); //$key sera validé par rapport aux flag par défaut (NOT_NULL | NOT_EMPTY)
 
 
-Les flags disponible sont :
-HTML_SECURE     Transforme la chaine en modifiant les tags html
+Les flags de validation disponible sont :
 NOT_EMPTY       Ne valide pas les valeurs vide
 NOT_NULL        Ne valide pas les valeurs null | inexistante
 NUMERIC         Ne valide pas les valeurs qui ne sont pas des nombres
 CHECK           Fait appel aux filtres
+
+Les flags de sécurité disponibles sont
+HTML_SECURE     Transforme la chaine en modifiant les tags html
 
 Les filtres disponibles (utilisable si le FLAG CHECK est présent) sont :
 i   integer             Vérifie si la valeur est un entier
@@ -55,15 +57,31 @@ d   date                Vérifie si la valeur est une date valide
 Exemple :
 $post = new REQUEST('POST');
 
-$userDataNumeric = $post(['ND', 'age'], NUMERIC); //On verifie si $_POST['ND'] et $_POST['age'] sont des valeurs numérique;
+$userDataNumeric = $post(['ND', 'age'], NUMERIC)->isValid(); //On verifie si $_POST['ND'] et $_POST['age'] sont des valeurs numérique;
 
-$userDataTest = $post(['ND', 'age'], CHECK, 'pi'); //On verifie si $_POST['ND'] et $_POST['age'] sont des entiers positifs
+$userDataTest = $post(['ND', 'age'], CHECK, 'pi')->isValid(); //On verifie si $_POST['ND'] et $_POST['age'] sont des entiers positifs
 
 $dataNews = $post(['ND', 'titre', 'contenu'],
-                   NOT_EMPTY | HTML_SECURE | CHECK,
-                   ['pi', 's', 's']);
+                   NOT_EMPTY | CHECK,
+                   ['pi', 's', 's'])->isValid();
 //On verifie que les $_POST['ND'], $_POST['titre'] et $_POST['contenu'] ne sont pas vide (ou null).
 // En même temps on sécurise les valeurs contenant du html
 // Et enfin on valide les données à partir de filtre : ND doit etre un entier positif et le reste doit etre des chaine
 
+//VERIFICATION AVANCEE
+try {
+    $post->shield_on(HTML_SECURE, ['titre', 'contenu']); //On active le bouclier seulement pour les valeur titre et contenu
+    if ($post(['ND', 'age', 'titre', 'contenu', 'password'], DEFAULT_FLAG | CHECK, ['pi', 'pi', 's', 's', 's'])->isValid()) {
+        $ND_AGE = $post(['ND', 'age'])->check(['i_range' => [0, 60]], [5, 10]); //On valide les données numérique, si non valide on remplace par les valeurs par défaut
+        $titre = $post('titre')->validate(['size' => [3, 255]]); //On valide le titre avec la taille, si non valide une exception est lancée
+        $contenu = $post['contenu']; //On récupère simplement la valeur contenu dans $_POST['contenu'] après l'avoir sécurisé
+        echo var_dump($ND_AGE);
+        echo ':'.$titre;
+        echo '<br />contenu : '.$contenu;
+    } else {
+        var_dump($post->get_errors_list());
+    }
+} catch (Exception $e) {
+    echo $e->getMessage();
+}
 

@@ -10,11 +10,16 @@ include 'Request.php';
 ********
 * FLAG *
 ********
-HTML_SECURE     ok
 NOT_EMPTY       ok
 NOT_NULL        ok
 CHECK           ok
 NUMERIC         ok
+
+
+*****************
+* SECURITY FLAG *
+*****************
+HTML_SECURE     ok
 
 ////// CHECK FLAG       ok
 
@@ -52,18 +57,18 @@ string      npk
 boolean     nok
 character   nok
 
-
 */
 
 // For test
-$_POST['titre'] = '<span>Hello world</span>';
+$_POST['titre'] = '<script type="text/javascript">alert("ok");</script><br />Salut<p>ok</p>';
 $_POST['x'] = 'test';
 $_POST['x_empty'] = '';
-$_POST['ND'] = "60";
-$_POST['age'] = "50.9";
+$_POST['ND'] = "2";
+$_POST['age'] = "50";
 $_POST['hidden'] = "false";
 $_POST['test'] = "ok";
-$_POST['contenu'] = "";
+$_POST['contenu'] = "<span>a</span>";
+$_POST['password'] = "b";
 
 
 $post = new REQUEST('POST');
@@ -73,82 +78,77 @@ $request = new REQUEST('ALL');
 /***NORMAL FLAG***/
 
 echo 'Securisation HTML';
-$titre = $post('titre', HTML_SECURE);
-var_dump($titre);
+
+$post->shield_off();
 
 echo '<br />Valeur inexistante';
-$userDataTest_1 = $post(['x', 'y'], NOT_EMPTY | NOT_NULL | HTML_SECURE);
+$userDataTest_1 = $post(['x', 'y'], NOT_EMPTY | NOT_NULL)->isValid();
 if (!$userDataTest_1) var_dump($post->get_errors_list());
 else var_dump($userDataTest_1);
 
 echo '<br />Donnée vide';
-$userDataTest_2 = $post(['x_empty'], NOT_EMPTY | HTML_SECURE);
+$userDataTest_2 = $post(['x_empty'], NOT_EMPTY)->isValid();
 if (!$userDataTest_2) var_dump($post->get_errors_list());
 else var_dump($userDataTest_2);
 
 echo '<br />Valeur existante';
-$userDataTest_3 = $post(['x'], NOT_EMPTY | HTML_SECURE);
+$userDataTest_3 = $post(['x'], NOT_EMPTY)->isValid();
 if (!$userDataTest_3) var_dump($post->get_errors_list());
 else var_dump($userDataTest_3);
 
 echo '<br />Valeur numérique';
-$userDataNumeric = $post(['ND', 'age'], NUMERIC);
+$userDataNumeric = $post(['ND', 'age'], NUMERIC)->isValid();
 if (!$userDataNumeric) var_dump($post->get_errors_list());
 else var_dump($userDataNumeric);
 
 // Default flag
 echo '<br />Valeur avec flag par défaut';
-$userDataTest_default = $post(['ND', 'age', 'test']);
+$userDataTest_default = $post(['ND', 'age', 'test'])->isValid();
 if (!$userDataTest_default) var_dump($post->get_errors_list());
 else var_dump($userDataTest_default);
 
 // CHECK FLAG
 echo '<br />Check integer ok';
-$userDataTest_4 = $post('ND', CHECK, 'i');
+$userDataTest_4 = $post('ND', CHECK, 'i')->isValid();
 if (!$userDataTest_4) var_dump($post->get_errors_list());
 else var_dump($userDataTest_4);
 
 echo '<br />check positive integer avec echec';
-$userDataTest_5 = $post(['ND', 'age'], CHECK, 'pi');
+$userDataTest_5 = $post(['ND', 'age'], CHECK, 'pi')->isValid();
 if (!$userDataTest_5) var_dump($post->get_errors_list());
 else var_dump($userDataTest_5);
 
 echo '<br />check valeur booléenne';
-$hidden = $post('hidden', CHECK, 'b');
+$hidden = $post('hidden', CHECK, 'b')->isValid();
 if (!$hidden) var_dump($post->get_errors_list());
 else var_dump($hidden);
 
 echo '<br />check simulation post ajout news basique (echec car contenu vide)';
 $dataNews = $post(['ND', 'titre', 'contenu'],
-    NOT_EMPTY | HTML_SECURE | CHECK,
-    ['pi', 's', 's']);
+    NOT_EMPTY | CHECK,
+    ['pi', 's', 's'])->isValid();
 if (!$dataNews) var_dump($post->get_errors_list());
 else var_dump($dataNews);
 
-/*
+echo '<br />Check avancée';
 
-$post->add_check($checkName, $fct);
+$post->shield_on(HTML_SECURE, ['titre', 'contenu']);
 
-/***Not implemented***/
-/*
-$filters = [ 'r' => [0, 2],
-             's' => '/./' ];
+try {
+    if ($post(['ND', 'age', 'titre', 'contenu', 'password'], DEFAULT_FLAG | CHECK, ['pi', 'pi', 's', 's', 's'])->isValid()) {
 
-$userData = $post(['ND', 'titre'], CHECK | NOT_EMPTY, $filters);
-var_dump($userData);
+        $ND_AGE  = $post(['ND', 'age'])->check(['i_range' => [0, 60]], [5, 10]);
+        $titre   = $post('titre')->validate(['size' => [3, 255]]);
+        $contenu = $post['contenu'];
 
-$post->get_type('titre');
-$post->is_type('titre', 's');
-$post->is_type(['titre', 'ND'], ['s', 'ip']);
+        echo var_dump($ND_AGE);
+        echo ':'.$titre;
+        echo '<br />contenu : '.$contenu;
 
-
-
-*/
-
-/*
-   Ajouter la possibilité de préciser les check :
-   $check_filter = [ 'ir' => [0, 1],
-                     's' => '/[a-z]{8,}/' ];
-
-    $userValues = $post(['activation_flag', 'password'], CHECK, $check_filter);
- */
+    } else {
+        var_dump($post->get_errors_list());
+    }
+} catch (Exception $e) {
+    echo $e->getMessage();
+}
+?>
