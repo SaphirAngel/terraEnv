@@ -69,9 +69,9 @@ $_POST['hidden'] = "false";
 $_POST['test'] = "ok";
 $_POST['contenu'] = "del";
 $_POST['password'] = "b";
+$_POST['date'] = "2012/06/12-2013/07/12";
 
-
-$post = new REQUEST('POST');
+$post = new REQUEST('POST', 'default');
 $get = new REQUEST('GET');
 $request = new REQUEST('ALL');
 
@@ -134,14 +134,15 @@ echo '<br />Check avancée';
 
 $post->shield_on(HTML_SECURE, ['titre', 'contenu']);
 
+$post->shield_on(HTML_SECURE | SQL_SECURE);
 try {
     $actionAllowed = ['list', 'update', 'add', 'del'];
     if ($post(['ND', 'age', 'titre', 'contenu', 'password'], DEFAULT_FLAG | CHECK, ['pi', 'pi', 's', 's', 's'])->isValid()) {
 
 
-        $ND_AGE  = $post(['ND', 'age'])->check(['i_range' => [0, 60]], [5, 10]);
+        $ND_AGE  = $post(['ND', 'age'])->check(['i_range' => [0, 60]], 5);
         $titre   = $post('titre')->validate(['size' => [5, 255]]);
-        //$contenu = $post['contenu'];
+        $contenu = $post['contenu'];
 
         $action = $post('contenu')->check(['in' => $actionAllowed], 'list');
 
@@ -156,4 +157,25 @@ try {
 } catch (PersonalException $e) {
     echo $e->getShortMessage().' : '.$e->getMessage();
 }
+
+
+try {
+    $date = $post('date')->validate(['date_interval' => ['-']]);
+    var_dump($date);
+
+    /*
+    //NEXT
+    $date = $post('date')->validate(['date_interval' => ['-']], ['date_format' => 'Y/m/d 00:00:00',
+                                                                 'date_format' => 'Y/m/d 23:59:59']);
+
+    //$date = $post('date')->format(['date_format' => ['yyyy-mm-dd']]);
+    //$prix = $post('prix')->format('f_format', 4);
+
+    //$prix = $post('prix')->check(['f_range' => [0, 60]], 4, ['f_format' => 4]);
+    */
+} catch(PersonalException $exp) {
+    echo 'problem';
+}
+
+
 ?>

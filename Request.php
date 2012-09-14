@@ -42,13 +42,13 @@ class REQUEST implements ArrayAccess
     private $shieldFlags;
     private $shieldKeys = array();
 
-
+    private $evalStatus = true;
     /**
      * Construction de l'instance
      * @param string $requestMethod Méthode de récupération des données (POST, GET, ALL => POST + GET). En cas de ALL POST est prioritaire si doublon
      * @param string $defaultFlag Flag par défaut
      */
-    public function __construct($requestMethod = 'POST', $defaultFlag = 'default')
+    public function __construct($requestMethod = 'POST', $defaultFlag = 'default', $evalStatus = true)
     {
         if ($requestMethod == 'POST') $this->arrayData = $_POST;
         if ($requestMethod == 'GET') $this->arrayData = $_GET;
@@ -58,6 +58,9 @@ class REQUEST implements ArrayAccess
 
         if ($defaultFlag == 'default') $this->defaultFlag = NOT_NULL | NOT_EMPTY;
         else $this->defaultFlag = $defaultFlag;
+
+        echo 'eval status : '.$evalStatus;
+        $this->evalStatus = $evalStatus;
 
         $this->init_default_filter();
 
@@ -154,9 +157,9 @@ class REQUEST implements ArrayAccess
         $options = $this->checkFunctions[$checkOption]['options'];
 
         if ($class != '')
-            return call_user_func(array($class, $checkFunction), $key, $value, $options);
+            return call_user_func(array($class, $checkFunction), $key, $value, $options, $this->evalStatus);
         else
-            return call_user_func($checkFunction, $key, $value, $options);
+            return call_user_func($checkFunction, $key, $value, $options, $this->evalStatus);
     }
 
     /**
@@ -176,7 +179,7 @@ class REQUEST implements ArrayAccess
         $class = $this->advanceCheckFunctions[$checkName]['class'];
         $options = $this->advanceCheckFunctions[$checkName]['options'];
 
-        return call_user_func(array($class, $checkFunction), $key, $value, $options, $checkParam);
+        return call_user_func(array($class, $checkFunction), $key, $value, $options, $checkParam, $this->evalStatus);
     }
 
     /**
@@ -261,7 +264,7 @@ class REQUEST implements ArrayAccess
      * @param $defaultValue La valeur par défaut à appliquer si les filtres ont échoués
      * @return mixed La valeur vérifié ou un tableau contenant toutes les valeurs vérifiés
      */
-    public function check($checkOrders, $defaultValue)
+    public function check($checkOrders = array(), $defaultValue = '')
     {
         $countData = 0;
         $uniq = false;
@@ -272,7 +275,8 @@ class REQUEST implements ArrayAccess
 
         foreach ($this->finalData as $key => $value) {
             foreach ($checkOrders as $checkOrder => $checkOptions) {
-                if (!$this->advance_check($key, $value, $checkOrder, $checkOptions)) {
+                $checkResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
+                if ($checkResult === false) {
                     if ($uniq === true) return $defaultValue;
 
                     if (is_array($defaultValue) && count($defaultValue) > $countData)
@@ -283,8 +287,12 @@ class REQUEST implements ArrayAccess
                         $value = $defaultValue;
 
                     break;
+                } else if ($checkResult !== true) { //Si le check renvoie un résultat
+                    $value = $checkResult['result'];
+                    break;
                 }
             }
+
             if ($uniq === true) return $this->secure($key, $value);
             $results[$key] = $this->secure($key, $value);
             $countData++;
@@ -299,7 +307,7 @@ class REQUEST implements ArrayAccess
      * @return array|string Les valeurs filtrées si tout les filtres ont réussis
      * @throws Exception Si un des filtres à échoué
      */
-    public function validate($checkOrders)
+    public function validate($checkOrders = array())
     {
 
         $uniq = false;
@@ -310,10 +318,14 @@ class REQUEST implements ArrayAccess
 
         foreach ($this->finalData as $key => $value) {
             foreach ($checkOrders as $checkOrder => $checkOptions) {
-                if (!$this->advance_check($key, $value, $checkOrder, $checkOptions)) {
+                $validateResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
+                if ($validateResult === false) {
                     throw new AdvancedCheckException($checkOrder.' for '.$key,
                         'La valeur contenue dans $_POST[\''.$key.'\'] ('.$this->html_secure($value).')
                          à échouée dans le filtre '.$checkOrder.'('.$this->advanceCheckFunctions[$checkOrder]['name'].')');
+                } else if ($validateResult !== true) {  //Si le validate renvoie un résultat
+                    $value = $validateResult['result'];
+                    break;
                 }
             }
             if ($uniq === true) return $this->secure($key, $value);
