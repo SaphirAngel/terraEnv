@@ -1,3 +1,30 @@
+Mise à jour :
+
+18/09/2012
+    General :
+    - Création du fichier config.inc.php qui contient les différentes configurations paramétrables
+    - Le flag DEFAULT_FLAG vaut maintenant NOT_NULL | NOT_EMPTY au lieu de 0 (prise en charge différente).
+        => modifiable via config.inc.php
+
+    Sécurisations :
+    - Implémentation de la sécurité SQL
+        => protection mysql_real_escape_string si chaine non numérique
+        => parcours des tableaux et protection des valeurs non numériques rencontrées
+    - Valeur par défaut de la sécurité modifié : Passe de HTML_SECURE | SQL_SECURE à SQL_SECURE. Ceci parce que la protection
+      html est principalement utile lors de la sortie utilisateurs au risque d'augmenter l'espace nécessaire dans la bdd.
+
+    Check :
+    - Ajout de la possibilité de rentrer la valeur par défaut dans le premier paramètre sur la méthode "check"
+        => Autorise la syntaxe : $userName = $post('userName')->check('anonyme');
+
+    Exceptions :
+    - Ajout de l'exception BasicCheckException qui intervient lorsqu'un filtre de type basic échoue sur une valeur (méthode validate)
+    - Ajout de la constante EXCEPTION_IF_BASIC_CHECK_ERROR qui prend un boolean en valeur. Le check basique renverra une exception si
+      EXCEPTION_IF_BASIC_CHECK_ERROR est à true.
+      => Permet de lever une exception de cette façon :
+         => $post('ND'); //Si $_POST['ND'] est vide ou non existant
+         => $post('ND', CHECK, 'pi'); //Si $_POST['ND'] n'est pas un numérique ou inférieur à 0;
+
 TerraEnv
 
 Ici sont présent les différentes classes que j'ai créé pour mon utilisation personnelle mais qui, si je les trouve viable,

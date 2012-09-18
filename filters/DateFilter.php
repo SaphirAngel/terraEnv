@@ -6,6 +6,10 @@
  * Time: 10:46
  * To change this template use File | Settings | File Templates.
  */
+
+define ('DEFAULT_DATE_FORMAT', 'Y-m-d');
+define ('DEFAULT_TIME_FORMAT', 'H:i:s');
+
 class DateFilter
 {
 
@@ -20,11 +24,11 @@ class DateFilter
 
     public static function date_interval($key, $value, $options = array(), $param = array(), $evalStatus = true)
     {
-        echo 'eval status : '.$evalStatus;
         $separator = '-';
-        if (count($param) == 1) $separator = $param[0];
+        if (is_array($param) && count($param) == 1) $separator = $param[0];
+        else if (is_string($param) && !empty($param)) $separator = $param;
 
-        $dateSplit = preg_split('/-/', $value);
+        $dateSplit = preg_split('/'.$separator.'/', $value);
         if (count($dateSplit) == 2) {
             if (self::date_time('', $dateSplit[0]) !== false && self::date_time('', $dateSplit[1]) !== false) {
                 if (!$evalStatus) return true;

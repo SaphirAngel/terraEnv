@@ -69,7 +69,7 @@ $_POST['hidden'] = "false";
 $_POST['test'] = "ok";
 $_POST['contenu'] = "del";
 $_POST['password'] = "b";
-$_POST['date'] = "2012/06/12-2013/07/12";
+$_POST['date'] = "2012/06/12$2013/07/12";
 
 $post = new REQUEST('POST', 'default');
 $get = new REQUEST('GET');
@@ -160,17 +160,29 @@ try {
 
 
 try {
-    $date = $post('date')->validate(['date_interval' => ['-']]);
+    $date = $post('date')->validate(['date_interval' => '\$']);
     var_dump($date);
 
     /*
+
+
+
+    $news_id = $post('ND')->validate('sql_exist' => ['conf1', 'table', 'keyField', 'more']]);
+
+    $login = $post('login')->validate(sql_exist' => ['conf1', 'users', 'login', 'activ = 1']);
+
+    $paiement = $post('paiement')->validate('json_decode');
+
+    json_decode
+
     //NEXT
     $date = $post('date')->validate(['date_interval' => ['-']], ['date_format' => 'Y/m/d 00:00:00',
                                                                  'date_format' => 'Y/m/d 23:59:59']);
 
     //$date = $post('date')->format(['date_format' => ['yyyy-mm-dd']]);
-    //$prix = $post('prix')->format('f_format', 4);
+    //$date = $post('date')->format(['date_format' => 'yyyy-mm-dd']);
 
+    //$prix = $post('prix')->format(['f_format' => 4]);
     //$prix = $post('prix')->check(['f_range' => [0, 60]], 4, ['f_format' => 4]);
     */
 } catch(PersonalException $exp) {
