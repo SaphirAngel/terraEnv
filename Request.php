@@ -13,15 +13,6 @@ include 'filters/MailFilter.php';
 include 'filters/StringFilter.php';
 include 'filters/CharacterFilter.php';
 
-//Security flag
-define ('HTML_SECURE', 1);
-define ('SQL_SECURE', 2);
-
-//Basic check flag
-define ('NOT_EMPTY', 6);
-define ('NOT_NULL', 4);
-define ('CHECK', 8);
-define ('NUMERIC', 16);
 
 include 'config.inc.php';
 
