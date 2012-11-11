@@ -21,7 +21,6 @@ class StringFilter
         if (count($param) == 1) {
             if (preg_match('/' . $param[0] . '/', $value)) return true;
         }
-
         return false;
     }
 

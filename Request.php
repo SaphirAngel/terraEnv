@@ -33,6 +33,11 @@ class REQUEST implements ArrayAccess
 
     private $evalStatus = true;
 
+    //Profils
+    private $profilUse = false;
+    private $loadedProfils = array();
+    private $profilOther = ACCEPTED;
+
     /**
      * Construction de l'instance
      * @param string $requestMethod Méthode de récupération des données (POST, GET, ALL => POST + GET). En cas de ALL POST est prioritaire si doublon
@@ -49,7 +54,7 @@ class REQUEST implements ArrayAccess
         if ($defaultFlag == 'default') $this->defaultFlag = DEFAULT_FLAG;
         else $this->defaultFlag = $defaultFlag;
 
-        echo 'eval status : ' . $evalStatus;
+        //echo 'eval status : ' . $evalStatus;
         $this->evalStatus = $evalStatus;
 
         $this->init_default_filter();
@@ -69,6 +74,37 @@ class REQUEST implements ArrayAccess
         $this->add_check_class("MailFilter");
         $this->add_check_class("ArrayFilter");
         $this->add_check_class("CharacterFilter");
+    }
+
+    public function load($profils)
+    {
+        if (empty($profils)) {
+            echo 'Aucun profil à charger, mise à zéro';
+            $this->profilUse('false');
+            $this->loadedProfils = array();
+            return;
+        }
+        if (!is_array($profils))
+            $profils = array($profils);
+
+        foreach ($profils as $profilName) {
+            $profilObject = Profil::get($profilName);
+            if ($profilObject) {
+                $this->profilUse = true;
+                $this->loadedProfils[$profilName] = $profilObject;
+                $this->profilOther |= $profilObject->get_other_action();
+            } else {
+                echo 'Nom de profil erroné : ' . $profilName;
+            }
+        }
+    }
+
+    public function exec($profils)
+    {
+        $this->load($profils);
+        foreach ($this->arrayData as $key => $value) {
+            $this->arrayData[$key] = $this->offsetGet($key);
+        }
     }
 
     /**
@@ -125,372 +161,399 @@ class REQUEST implements ArrayAccess
         return $data;
     }
 
-/**
- * Ajoute une erreur au tableau d'erreur
- * @param $code Code de l'erreur
- * @param $comment Description détaillée de l'erreur
- */
-private
-function add_error($code, $comment)
-{
-    $this->errorsList[$code][] = $comment;
-}
 
-/**
- * Verifie les données si le flag CHECK est présent
- * @param $key Clé de la valeur à vérifier
- * @param $value Valeur à vérifier
- * @param array $checkOption Options passées lors de l'appel de la vérification
- * @return bool|mixed Résultat de la vérification
- */
-private
-function basic_check($key, $value, $checkOption = array())
-{
-    $class = '';
-    if (!isset($this->checkFunctions[$checkOption]))
-        throw new BadCallFilter('Basic filter not exist', 'Aucun filtre basique avec pour identifiant [' . $checkOption . '] existe');
-
-    $checkFunction = $this->checkFunctions[$checkOption]['function'];
-    if (isset($this->checkFunctions[$checkOption]['class']))
-        $class = $this->checkFunctions[$checkOption]['class'];
-    $options = $this->checkFunctions[$checkOption]['options'];
-
-    if ($class != '')
-        return call_user_func(array($class, $checkFunction), $key, $value, $options, $this->evalStatus);
-    else
-        return call_user_func($checkFunction, $key, $value, $options, $this->evalStatus);
-}
-
-/**
- * Verifie les données de façon plus élaboré
- * @param $key Clé de la valeur à vérifier
- * @param $value Valeur à vérifier
- * @param string $checkName Identifiant du filtre
- * @param array $checkParam Paramètre nécessaire au bon fonctionnement des différents filtres
- * @return bool|mixed Retourne false si le filtre à échoué et True sinon
- */
-private
-function advance_check($key, $value, $checkName, $checkParam)
-{
-    if (!isset($this->advanceCheckFunctions[$checkName]))
-        throw new BadCallFilter('Advance filter not exist', 'Aucun filtre avancé avec pour identifiant [' . $checkName . '] existe');
-
-    $checkFunction = $this->advanceCheckFunctions[$checkName]['function'];
-    $class = $this->advanceCheckFunctions[$checkName]['class'];
-    $options = $this->advanceCheckFunctions[$checkName]['options'];
-
-    return call_user_func(array($class, $checkFunction), $key, $value, $options, $checkParam, $this->evalStatus);
-}
-
-/**
- * Valide les données en entrées selon différents paramètres
- * @param mixed $keys Une clé texte ou un tableau de clé
- * @param int $flags Flag de vérification
- * @param string $checkOptions Si le flag CHECK est présent alors contient les id des filtres
- * @return array|bool Retourne un tableau ou false si les données ne sont pas valides
- */
-public
-function __invoke($keys, $flags = DEFAULT_FLAG, $checkOptions = '')
-{
-    //On nettoie les erreurs à chaque nouvelle requète
-    $this->errorsList = array();
-    $this->finalData = array();
-
-   // if ($flags == DEFAULT_FLAG) $flags = $this->defaultFlag;
-
-    $notEmpty = $flags & NOT_EMPTY;
-    $notNull = $flags & NOT_NULL;
-    $check = $flags & CHECK;
-    $numeric = $flags & NUMERIC;
-
-    if (!is_array($keys)) {
-        $key = $keys;
-        $keys = array($key);
+    /**
+     * Ajoute une erreur au tableau d'erreur
+     * @param $code Code de l'erreur
+     * @param $comment Description détaillée de l'erreur
+     */
+    private
+    function add_error($code, $comment)
+    {
+        $this->errorsList[$code][] = $comment;
     }
 
-    foreach ($keys as $count => $key) {
-        $this->finalData[$key] = '';
+    /**
+     * Verifie les données si le flag CHECK est présent
+     * @param $key Clé de la valeur à vérifier
+     * @param $value Valeur à vérifier
+     * @param array $checkOption Options passées lors de l'appel de la vérification
+     * @return bool|mixed Résultat de la vérification
+     */
+    private
+    function basic_check($key, $value, $checkOption = array())
+    {
+        $class = '';
+        if (!isset($this->checkFunctions[$checkOption]))
+            throw new BadCallFilter('Basic filter not exist', 'Aucun filtre basique avec pour identifiant [' . $checkOption . '] existe');
 
-        if (isset($this->arrayData[$key])) {
-            if ($numeric && !is_numeric($this->arrayData[$key])) {
-                $this->add_error('NUMERIC_ERROR',
-                    'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] n\'est pas une valeur numérique (\'' . $this->arrayData[$key] . '\)');
+        $checkFunction = $this->checkFunctions[$checkOption]['function'];
+        if (isset($this->checkFunctions[$checkOption]['class']))
+            $class = $this->checkFunctions[$checkOption]['class'];
+        $options = $this->checkFunctions[$checkOption]['options'];
+
+        if ($class != '')
+            return call_user_func(array($class, $checkFunction), $key, $value, $options, $this->evalStatus);
+        else
+            return call_user_func($checkFunction, $key, $value, $options, $this->evalStatus);
+    }
+
+    /**
+     * Verifie les données de façon plus élaboré
+     * @param $key Clé de la valeur à vérifier
+     * @param $value Valeur à vérifier
+     * @param string $checkName Identifiant du filtre
+     * @param array $checkParam Paramètre nécessaire au bon fonctionnement des différents filtres
+     * @return bool|mixed Retourne false si le filtre à échoué et True sinon
+     */
+    private
+    function advance_check($key, $value, $checkName, $checkParam)
+    {
+        if (!isset($this->advanceCheckFunctions[$checkName]))
+            throw new BadCallFilter('Advance filter not exist', 'Aucun filtre avancé avec pour identifiant [' . $checkName . '] existe');
+
+        $checkFunction = $this->advanceCheckFunctions[$checkName]['function'];
+        $class = $this->advanceCheckFunctions[$checkName]['class'];
+        $options = $this->advanceCheckFunctions[$checkName]['options'];
+
+        return call_user_func(array($class, $checkFunction), $key, $value, $options, $checkParam, $this->evalStatus);
+    }
+
+    /**
+     * Valide les données en entrées selon différents paramètres
+     * @param mixed $keys Une clé texte ou un tableau de clé
+     * @param int $flags Flag de vérification
+     * @param string $checkOptions Si le flag CHECK est présent alors contient les id des filtres
+     * @return array|bool Retourne un tableau ou false si les données ne sont pas valides
+     */
+    public
+    function __invoke($keys, $flags = DEFAULT_FLAG, $checkOptions = '')
+    {
+        //On nettoie les erreurs à chaque nouvelle requète
+        $this->errorsList = array();
+        $this->finalData = array();
+
+        // if ($flags == DEFAULT_FLAG) $flags = $this->defaultFlag;
+
+        $notEmpty = $flags & NOT_EMPTY;
+        $notNull = $flags & NOT_NULL;
+        $check = $flags & CHECK;
+        $numeric = $flags & NUMERIC;
+
+        if (!is_array($keys)) {
+            $key = $keys;
+            $keys = array($key);
+        }
+
+        foreach ($keys as $count => $key) {
+            $this->finalData[$key] = '';
+
+            if (isset($this->arrayData[$key])) {
+                if ($numeric && !is_numeric($this->arrayData[$key])) {
+                    $this->add_error('NUMERIC_ERROR',
+                        'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] n\'est pas une valeur numérique (\'' . $this->arrayData[$key] . '\)');
+                    continue;
+                }
+                $this->finalData[$key] = $this->arrayData[$key];
+            } else if ($notNull == true) {
+
+                $this->add_error('NULL_ERROR', 'La valeur $_' . $this->requestMethod . '[\'' . $key . '\'] n\'existe pas');
                 continue;
             }
 
-            $this->finalData[$key] = $this->arrayData[$key];
-        } else if ($notNull == true) {
-            $this->add_error('NULL_ERROR', 'La valeur $_' . $this->requestMethod . '[\'' . $key . '\'] n\'existe pas');
-            continue;
-        }
-
-        if (empty($this->finalData[$key]) && $notEmpty == true) {
-            $this->add_error('EMPTY_ERROR', 'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] est vide');
-            continue;
-        }
-
-        if ($check) {
-            $checkOption = '';
-            if (!is_array($checkOptions)) $checkOption = $checkOptions;
-            else {
-                if (isset($checkOptions[$count]))
-                    $checkOption = $checkOptions[$count];
-            }
-
-            if ($checkOption != '' && !$this->basic_check($key, $this->finalData[$key], $checkOption)) {
-                $this->add_error('CHECK_ERROR',
-                    'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] n\'est pas valide' .
-                        '(' . $this->finalData[$key] . ' n\'est pas de type ' . $this->checkFunctions[$checkOption]['name'] . ')');
+            if (empty($this->finalData[$key]) && $notEmpty == true) {
+                $this->add_error('EMPTY_ERROR', 'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] est vide');
                 continue;
             }
-        }
-    }
 
-    if (count($this->get_errors_list()) > 0 && EXCEPTION_IF_BASIC_CHECK_ERROR === true)
-        throw new BasicCheckException("Not valid data", "Les données ne sont pas valides : get_errors_list() pour le détail des erreurs.");
+            if ($check) {
+                $checkOption = '';
+                if (!is_array($checkOptions)) $checkOption = $checkOptions;
+                else {
+                    if (isset($checkOptions[$count]))
+                        $checkOption = $checkOptions[$count];
+                }
 
-    return $this;
-}
-
-/**
- * @return array|bool Retourne false si un erreur a été détecté et le tableau des valeurs validées en cas de succès
- */
-public
-function isValid()
-{
-    if (count($this->errorsList) > 0) return false;
-    return $this->finalData;
-}
-
-/**
- * Valide les variables précédemment checker basiquement et remplace par une valeur par défaut
- * @param $checkOrders Les filtres à appliquer aux valeurs
- * @param $defaultValue La valeur par défaut à appliquer si les filtres ont échoués
- * @return mixed La valeur vérifié ou un tableau contenant toutes les valeurs vérifiés
- */
-public
-function check($checkOrders = array(), $defaultValue = null)
-{
-    $countData = 0;
-    $uniq = false;
-    $results = array();
-
-    //On dépasse les utilisations de checkOrders pour facilité l'utilisation
-    //CheckOrders peut servir de valeur par défaut si defaultValue est à null.
-    //Autorise : $post('val')->check('value');
-    if (!$this->isValid() && $defaultValue === null) return $checkOrders;
-    if (!$this->isValid()) return $defaultValue;
-
-    if (count($this->finalData) == 1) $uniq = true;
-
-    foreach ($this->finalData as $key => $value) {
-        foreach ($checkOrders as $checkOrder => $checkOptions) {
-            $checkResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
-            if ($checkResult === false) {
-                if ($uniq === true) return $defaultValue;
-
-                if (is_array($defaultValue) && count($defaultValue) > $countData)
-                    $value = $defaultValue[$countData];
-                else if (is_array($defaultValue))
-                    $value = null;
-                else
-                    $value = $defaultValue;
-
-                break;
-            } else if ($checkResult !== true) { //Si le check renvoie un résultat
-                $value = $checkResult['result'];
-                break;
+                if ($checkOption != '' && !$this->basic_check($key, $this->finalData[$key], $checkOption)) {
+                    $this->add_error('CHECK_ERROR',
+                        'La donnée contenue dans $_' . $this->requestMethod . '[\'' . $key . '\'] n\'est pas valide' .
+                            '(' . $this->finalData[$key] . ' n\'est pas de type ' . $this->checkFunctions[$checkOption]['name'] . ')');
+                    continue;
+                }
             }
         }
 
-        if ($uniq === true) return $this->secure($key, $value);
-        $results[$key] = $this->secure($key, $value);
-        $countData++;
+        if (count($this->get_errors_list()) > 0 && EXCEPTION_IF_BASIC_CHECK_ERROR === true)
+            throw new BasicCheckException("Not valid data", "Les données ne sont pas valides : get_errors_list() pour le détail des erreurs.");
+
+        return $this;
     }
 
-    return $results;
-}
+    /**
+     * @return array|bool Retourne false si un erreur a été détecté et le tableau des valeurs validées en cas de succès
+     */
+    public
+    function isValid()
+    {
+        if (count($this->errorsList) > 0) return false;
+        return $this->finalData;
+    }
 
-/**
- * Valide les variables précédemment checker basiquement
- * @param $checkOrders Les filtres à appliquer aux valeurs
- * @return array|string Les valeurs filtrées si tout les filtres ont réussis
- * @throws Exception Si un des filtres à échoué
- */
-public
-function validate($checkOrders = array())
-{
+    /**
+     * Valide les variables précédemment checker basiquement et remplace par une valeur par défaut
+     * @param $checkOrders Les filtres à appliquer aux valeurs
+     * @param $defaultValue La valeur par défaut à appliquer si les filtres ont échoués
+     * @return mixed La valeur vérifié ou un tableau contenant toutes les valeurs vérifiés
+     */
+    public
+    function check($checkOrders = array(), $defaultValue = null)
+    {
+        $countData = 0;
+        $uniq = false;
+        $results = array();
 
-    $uniq = false;
-    $results = array();
+        //On dépasse les utilisations de checkOrders pour facilité l'utilisation
+        //CheckOrders peut servir de valeur par défaut si defaultValue est à null.
+        //Autorise : $post('val')->check('value');
+        if (!$this->isValid() && $defaultValue === null) return $checkOrders;
+        if (!$this->isValid()) return $defaultValue;
 
-    if (!$this->isValid()) throw new BasicCheckException("Not valid data", "Les données ne sont pas valides : get_errors_list() pour le détail des erreurs.");
-    if (count($this->finalData) == 1) $uniq = true;
+        if (count($this->finalData) == 1) $uniq = true;
 
-    foreach ($this->finalData as $key => $value) {
-        foreach ($checkOrders as $checkOrder => $checkOptions) {
-            $validateResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
-            if ($validateResult === false) {
-                throw new AdvancedCheckException($checkOrder . ' for ' . $key,
-                    'La valeur contenue dans $_POST[\'' . $key . '\'] (' . $this->html_secure($value) . ')
+        foreach ($this->finalData as $key => $value) {
+            foreach ($checkOrders as $checkOrder => $checkOptions) {
+                $checkResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
+                if ($checkResult === false) {
+                    if ($uniq === true) return $defaultValue;
+
+                    if (is_array($defaultValue) && count($defaultValue) > $countData)
+                        $value = $defaultValue[$countData];
+                    else if (is_array($defaultValue))
+                        $value = null;
+                    else
+                        $value = $defaultValue;
+
+                    break;
+                } else if ($checkResult !== true) { //Si le check renvoie un résultat
+                    $value = $checkResult['result'];
+                    break;
+                }
+            }
+
+            if ($uniq === true) return $this->secure($key, $value);
+            $results[$key] = $this->secure($key, $value);
+            $countData++;
+        }
+
+        return $results;
+    }
+
+    /**
+     * Valide les variables précédemment checker basiquement
+     * @param $checkOrders Les filtres à appliquer aux valeurs
+     * @return array|string Les valeurs filtrées si tout les filtres ont réussis
+     * @throws Exception Si un des filtres à échoué
+     */
+    public
+    function validate($checkOrders = array())
+    {
+
+        $uniq = false;
+        $results = array();
+
+        if (!$this->isValid()) throw new BasicCheckException("Not valid data", "Les données ne sont pas valides : get_errors_list() pour le détail des erreurs.");
+        if (count($this->finalData) == 1) $uniq = true;
+
+        foreach ($this->finalData as $key => $value) {
+            foreach ($checkOrders as $checkOrder => $checkOptions) {
+                $validateResult = $this->advance_check($key, $value, $checkOrder, $checkOptions);
+                if ($validateResult === false) {
+                    throw new AdvancedCheckException($checkOrder . ' for ' . $key,
+                        'La valeur contenue dans $_POST[\'' . $key . '\'] (' . $this->html_secure($value) . ')
                          à échouée dans le filtre ' . $checkOrder . '(' . $this->advanceCheckFunctions[$checkOrder]['name'] . ')');
-            } else if ($validateResult !== true) { //Si le validate renvoie un résultat
-                $value = $validateResult['result'];
-                break;
+                } else if ($validateResult !== true) { //Si le validate renvoie un résultat
+                    $value = $validateResult['result'];
+                    break;
+                }
+            }
+            if ($uniq === true) return $this->secure($key, $value);
+            $results[$key] = $this->secure($key, $value);
+        }
+
+        return $results;
+    }
+
+
+    /**
+     * Sécurise les données selon l'état du bouclier
+     * @param $key  Clé dont la valeur est à sécuriser selon l'état du bouclier
+     * @param $value Valeur demandant a être sécurisé selon l'état du bouclier
+     * @return string   Valeur sécurisé ou non selon l'état du bouclier
+     */
+    public
+    function secure($key, $value)
+    {
+        $htmlSecure = $this->shieldFlags & HTML_SECURE;
+        $sqlSecure = $this->shieldFlags & SQL_SECURE;
+
+        if ($htmlSecure && (count($this->shieldKeys[$htmlSecure]) == 0 || in_array($key, $this->shieldKeys[$htmlSecure])))
+            $value = $this->html_secure($value);
+        if ($sqlSecure && (count($this->shieldKeys) == 0 || in_array($key, $this->shieldKeys)))
+            $value = $this->sql_secure($value);
+
+        return $value;
+    }
+
+    /**
+     * Permet d'ajouter des filtres contenu dans une classe
+     * @param $className Nom de la classe contenant des filtres
+     */
+    public
+    function add_check_class($className)
+    {
+        $checkMethod = $className::get_check_functions();
+        $advanceCheckMethod = $className::get_advance_check_functions();
+
+        foreach ($checkMethod as $method) {
+            $this->checkFunctions[$method['id']] = $method;
+        }
+        foreach ($advanceCheckMethod as $method) {
+            $this->advanceCheckFunctions[$method['id']] = $method;
+        }
+    }
+
+    /**
+     * Retourne les erreurs
+     * @return array Le tableau contenant les erreurs
+     */
+    public
+    function get_errors_list()
+    {
+        return $this->errorsList;
+    }
+
+    /**
+     * Extinction du bouclier et vidage des variables
+     */
+    public
+    function shield_off()
+    {
+        $this->shieldFlags = 0;
+        $this->shieldKeys = array();
+    }
+
+    /**
+     * Active le bouclier HTML et/ou SQL
+     * @param int $flags Type de bouclier à enclencher
+     * @param array $keys Liste des clés sur lesquelles le bouclier est effectif, si vide toute les clés sont comprises
+     */
+    public
+    function shield_on($flags = 0, $keys = array())
+    {
+        $this->shieldFlags = SQL_SECURE;
+        if ($flags != 0) $this->shieldFlags = $flags;
+        if (is_array($keys) && count($keys) > 0) {
+            $this->shieldKeys[$this->shieldFlags] = $keys;
+        }
+    }
+
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Whether a offset exists
+     * @link http://php.net/manual/en/arrayaccess.offsetexists.php
+     * @param mixed $offset <p>
+     * An offset to check for.
+     * </p>
+     * @return boolean true on success or false on failure.
+     * </p>
+     * <p>
+     * The return value will be casted to boolean if non-boolean was returned.
+     */
+    public
+    function offsetExists($offset)
+    {
+        return isset($this->arrayData[$offset]);
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to retrieve
+     * @link http://php.net/manual/en/arrayaccess.offsetget.php
+     * @param mixed $offset <p>
+     * The offset to retrieve.
+     * </p>
+     * @return mixed Can return all value types.
+     */
+    public
+    function offsetGet($offset)
+    {
+        if ($this->profilUse === true) {
+            foreach ($this->loadedProfils as $profilObject) {
+                if (($profilData = $profilObject->data($offset)) !== false) {
+                    if (!$this->__invoke($offset, $profilData['check'][0], $profilData['check'][1])->isValid()) {
+                        throw new Exception("Non valide : " . print_r($this->errorsList, true));
+                    } else {
+
+                        $result = '';
+                        if ($profilData['advance'][1] !== null) {
+                            $result = $this->check($profilData['advance'][0], $profilData['advance'][1]);
+                        } else {
+                            $this->validate($profilData['advance'][0]);
+                            $result = $this->arrayData[$offset];
+                        }
+                        return $result;
+                    }
+                }
+            }
+
+            if (!($this->profilOther & NOT_ACCEPTED)) $this->arrayData[$offset];
+            else {
+                throw new Exception("La valeur avec pour clé '$offset' n'est pas acceptée");
             }
         }
-        if ($uniq === true) return $this->secure($key, $value);
-        $results[$key] = $this->secure($key, $value);
+
+
+        if (!isset($this->arrayData[$offset])) return null;
+        return $this->secure($offset, $this->arrayData[$offset]);
     }
 
-    return $results;
-}
-
-
-/**
- * Sécurise les données selon l'état du bouclier
- * @param $key  Clé dont la valeur est à sécuriser selon l'état du bouclier
- * @param $value Valeur demandant a être sécurisé selon l'état du bouclier
- * @return string   Valeur sécurisé ou non selon l'état du bouclier
- */
-public
-function secure($key, $value)
-{
-    $htmlSecure = $this->shieldFlags & HTML_SECURE;
-    $sqlSecure = $this->shieldFlags & SQL_SECURE;
-
-    if ($htmlSecure && (count($this->shieldKeys[$htmlSecure]) == 0 || in_array($key, $this->shieldKeys[$htmlSecure])))
-        $value = $this->html_secure($value);
-    if ($sqlSecure && (count($this->shieldKeys) == 0 || in_array($key, $this->shieldKeys)))
-        $value = $this->sql_secure($value);
-
-    return $value;
-}
-
-/**
- * Permet d'ajouter des filtres contenu dans une classe
- * @param $className Nom de la classe contenant des filtres
- */
-public
-function add_check_class($className)
-{
-    $checkMethod = $className::get_check_functions();
-    $advanceCheckMethod = $className::get_advance_check_functions();
-
-    foreach ($checkMethod as $method) {
-        $this->checkFunctions[$method['id']] = $method;
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to set
+     * @link http://php.net/manual/en/arrayaccess.offsetset.php
+     * @param mixed $offset <p>
+     * The offset to assign the value to.
+     * </p>
+     * @param mixed $value <p>
+     * The value to set.
+     * </p>
+     * @return void
+     */
+    public
+    function offsetSet($offset, $value)
+    {
+        if (is_null($offset)) {
+            $this->arrayData[] = $value;
+        } else {
+            $this->arrayData[$offset] = $value;
+        }
     }
-    foreach ($advanceCheckMethod as $method) {
-        $this->advanceCheckFunctions[$method['id']] = $method;
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to unset
+     * @link http://php.net/manual/en/arrayaccess.offsetunset.php
+     * @param mixed $offset <p>
+     * The offset to unset.
+     * </p>
+     * @return void
+     */
+    public
+    function offsetUnset($offset)
+    {
+        unset($this->arrayData[$offset]);
     }
-}
-
-/**
- * Retourne les erreurs
- * @return array Le tableau contenant les erreurs
- */
-public
-function get_errors_list()
-{
-    return $this->errorsList;
-}
-
-/**
- * Extinction du bouclier et vidage des variables
- */
-public
-function shield_off()
-{
-    $this->shieldFlags = 0;
-    $this->shieldKeys = array();
-}
-
-/**
- * Active le bouclier HTML et/ou SQL
- * @param int $flags Type de bouclier à enclencher
- * @param array $keys Liste des clés sur lesquelles le bouclier est effectif, si vide toute les clés sont comprises
- */
-public
-function shield_on($flags = 0, $keys = array())
-{
-    $this->shieldFlags = SQL_SECURE;
-    if ($flags != 0) $this->shieldFlags = $flags;
-    if (is_array($keys) && count($keys) > 0) {
-        $this->shieldKeys[$this->shieldFlags] = $keys;
-    }
-}
-
-
-/**
- * (PHP 5 &gt;= 5.0.0)<br/>
- * Whether a offset exists
- * @link http://php.net/manual/en/arrayaccess.offsetexists.php
- * @param mixed $offset <p>
- * An offset to check for.
- * </p>
- * @return boolean true on success or false on failure.
- * </p>
- * <p>
- * The return value will be casted to boolean if non-boolean was returned.
- */
-public
-function offsetExists($offset)
-{
-    return isset($this->arrayData[$offset]);
-}
-
-/**
- * (PHP 5 &gt;= 5.0.0)<br/>
- * Offset to retrieve
- * @link http://php.net/manual/en/arrayaccess.offsetget.php
- * @param mixed $offset <p>
- * The offset to retrieve.
- * </p>
- * @return mixed Can return all value types.
- */
-public
-function offsetGet($offset)
-{
-    if (!isset($this->arrayData[$offset])) return null;
-    return $this->secure($offset, $this->arrayData[$offset]);
-}
-
-/**
- * (PHP 5 &gt;= 5.0.0)<br/>
- * Offset to set
- * @link http://php.net/manual/en/arrayaccess.offsetset.php
- * @param mixed $offset <p>
- * The offset to assign the value to.
- * </p>
- * @param mixed $value <p>
- * The value to set.
- * </p>
- * @return void
- */
-public
-function offsetSet($offset, $value)
-{
-    if (is_null($offset)) {
-        $this->arrayData[] = $value;
-    } else {
-        $this->arrayData[$offset] = $value;
-    }
-}
-
-/**
- * (PHP 5 &gt;= 5.0.0)<br/>
- * Offset to unset
- * @link http://php.net/manual/en/arrayaccess.offsetunset.php
- * @param mixed $offset <p>
- * The offset to unset.
- * </p>
- * @return void
- */
-public
-function offsetUnset($offset)
-{
-    unset($this->arrayData[$offset]);
-}
 
 }
 
