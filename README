@@ -1,5 +1,8 @@
 Mise à jour :
 
+11/11/2012
+    Création du système de profil via la classe Profil.
+
 18/09/2012
     General :
     - Création du fichier config.inc.php qui contient les différentes configurations paramétrables
@@ -29,6 +32,67 @@ TerraEnv
 
 Ici sont présent les différentes classes que j'ai créé pour mon utilisation personnelle mais qui, si je les trouve viable,
 peuvent servir à une ou plusieurs personnes.
+
+Explications de l'ajout des profils :
+    Ceci est une nouvelle fonctionnalité qui permet une autre forme d'utilisation des filtres.
+    Pour faire simple :
+        - vous créez un ou plusieurs profils dans un fichiers spécifique
+        - vous chargez ce fichier dans votre applications
+        - les validations se feront des l'appel des valeurs dans le code
+
+    Voici un exemple:
+        J'ai créé dans le fichier nommé primary_types.php des filtres simples.
+        
+            $primaryTypes->check(['i', 'int'], NOT_EMPTY | NUMERIC, 'i'); 
+            Ceci créer un filtre sur les clé i et int, il va vérifier si la valeur est bien numeric et est un int.
+           
+            $primaryTypes->check(['login', 'username'], NOT_EMPTY, 's')
+                        ->advance(['login', 'username'], ['regex' => ['^[A-Za-z0-9_-]*$']]);
+            Celui ci s'applique sur les clés login et username et permet de filtrer les données qui ne sont pas des chaines
+            ou qui contiennent plus de caractère autorisées que prévu dans le code.
+
+            $formTypes->check('submit', NOT_NULL | NOT_EMPTY)
+                      ->advance('submit', [], false);
+            Ce dernier va juste vérifier que lé clé submit existe avec une valeur non null et me renvoyer false sinon.
+
+        Une fois ce fichier créé je peux l'include dans code et le charger.
+            include 'Request.php';
+            include 'Profil.php';
+            include 'profils/primary_types.php';
+
+            $post = new request('POST', 'default');
+            
+            $post->load('primary_types');
+            
+        Enfin je peux l'utiliser simplement comme cela :
+        $message = '';
+        try {
+            if ($post['userUpdate_submit']) {
+                $login = $post['user_login'];
+                $message = "Données valide";
+            }
+        } catch (Exception $exception) {
+            $message = 'Les données ne sont pas corrects';
+        }
+        
+
+    Sur le formulaire :
+        
+        <div>
+            <?php echo $message; ?>
+        </div>
+        
+        <form action="test_v2.php" method="POST">
+            <label for='user_login'>Identifiant : </label>
+            <input id="user_login" name="user_login" type="text" value="" />
+            <br />          
+            <input id="userUpdate_submit" type="submit" name="userUpdate_submit" value="envoyer" />
+        </form>
+
+        Comme vous pouvez le voir les clés que l'on a précisé dans le profil sont utilisables de deux façons.
+        Soit directement en tant que clé, soit en tant que fragment de clé. Dans ce dernier cas la clé doit être
+        composée de cette manière : text_cleProfil (user_login ou userUpdate_submit dans notre cas).
+        
 
 REQUEST :
 
