@@ -149,4 +149,8 @@ class Profil
     }
 }
 
-include 'profils/primary_types.php';
+$dirHandle = opendir('./profils');
+while ($file = readdir($dirHandle))  {
+    if ($file != '.' && $file != '..')
+        include 'profils/'.$file;
+}

@@ -19,6 +19,6 @@ $primaryTypes->check('phonenumber', 0)
 
 
 $formTypes = new Profil('form_types');
-$formTypes->check('submit', NOT_NULL | NOT_EMPTY)
+$formTypes->check('submit', 0)
           ->advance('submit', [], false);
 

@@ -7,24 +7,23 @@
  * to change this template use file | settings | file templates.
  */
 include 'Request.php';
-include 'Profil.php';
-
 $post = new request('POST', 'default');
 
 $post->load('primary_types');
 $post->load('form_types');
 
-$message = '';
-try {
-    var_dump($_POST);
-    echo 'test : '.$post['userUpdate_submit'];
-    if ($post['userUpdate_submit']) {
-        $login = $post['user_login'];
-        $userKey = $post['user_key'];
-        $message = "Données valide";
+$count = 100000;
+while ($count-- > 0) {
+    $message = '';
+    try {
+        if ($post['userUpdate_submit']) {
+            $login = $post['user_login'];
+            $userKey = $post['user_key'];
+            $message = "Données valide";
+        }
+    } catch (Exception $exception) {
+        $message = 'Les données ne sont pas corrects';
     }
-} catch (Exception $exception) {
-    $message = 'Les données ne sont pas corrects';
 }
 
 ?>
@@ -35,9 +34,9 @@ try {
 
 <form action="test_v2.php" method="POST">
     <label for='user_login'>Identifiant : </label>
-    <input id="user_login" name="user_login" type="text" value="" />
-<br />
-    <input id="user_key" name="user_key" type="hidden" value="20" />
-<br />
-    <input id="userUpdate_submit" type="submit" name="userUpdate_submit" value="envoyer" />
+    <input id="user_login" name="user_login" type="text" value=""/>
+    <br/>
+    <input id="user_key" name="user_key" type="hidden" value="20"/>
+    <br/>
+    <input id="userUpdate_submit" type="submit" name="userUpdate_submit" value="envoyer"/>
 </form>

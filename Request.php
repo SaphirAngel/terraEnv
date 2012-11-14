@@ -15,6 +15,7 @@ include 'filters/CharacterFilter.php';
 
 
 include 'config.inc.php';
+include_once 'Profil.php';
 
 class REQUEST implements ArrayAccess
 {
@@ -80,7 +81,7 @@ class REQUEST implements ArrayAccess
     {
         if (empty($profils)) {
             echo 'Aucun profil à charger, mise à zéro';
-            $this->profilUse('false');
+            $this->profilUse = false;
             $this->loadedProfils = array();
             return;
         }
@@ -170,7 +171,7 @@ class REQUEST implements ArrayAccess
     private
     function add_error($code, $comment)
     {
-        $this->errorsList[$code][] = $comment;
+        $this->errorsList["$code"][] = $comment;
     }
 
     /**
@@ -614,7 +615,6 @@ class BadCallFilter extends PersonalException
 }
 
 /*
-
 Initialisation des instances
 
 $post = new REQUEST('POST');
